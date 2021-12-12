@@ -1,0 +1,46 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+
+jobs:
+  testing:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        node-version: [12.x, 14.x, 16.x]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create .env file
+        run: |
+          touch .env
+          echo DB_URI=${{ secrets.DB_URI }} >> .env
+          echo SESSION_SECRET=${{ secrets.SESSION_SECRET }} >> .env
+      - name: Merge development -> staging
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm i
+      - run: npm test
+  production:
+    needs: testing
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [12.x, 14.x, 16.x]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Merge staging -> main
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+      - uses: devmasx/merge-branch@v1.3.1
+        with:
+          type: now
+          from_branch: staging
+          target_branch: main
+          github_token: ${{ github.token }}
